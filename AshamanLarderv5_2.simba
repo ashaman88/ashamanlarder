@@ -8,28 +8,34 @@ Program AshamanLarder;
 
 {
 
-AshamanLarder v5.2
+AshamanLarder v5.1 (harry's edit)
 -Make sure you have a full load of Oak Planks on you
 -Make sure you have already told the Butler to get 20 Oak Planks or if using demon butler, 26
 }
 
 Var
   LarderCount, XP, StartTime, LardersPH, XPH, Sec:Integer;
-  ButlerDTM, DButlerDTM, MessCount, Count, Counts, POSDTM,Choose: Integer;
+  ButlerDTM, DButlerDTM, BuildDTM, MessCount, Count, Counts, POSDTM,Choose: Integer;
   aFound: Extended;
 Const
   SRLStats_Username = ''; // Leave blank if you don't have a stats account
   SRLStats_Password = '';
 
-  A=252;
-  B=108;    // No touchy
-  C=277;
-  D=137;
+  BA=281;//252;    // butler pos
+  BB=148;//108;    // No touchy
+  BC=313;//277;
+  BD=185;//137;
+  //269, 138,319, 199
+
+  LA=256;//247; //lard pos
+  LB=97;//71;
+  LC=280;//279;
+  LD=141;
 
   ScriptVersion = '5.2';
 
   Direction = 'N' ; // Set this to whatever direction your larder is facing so that your butler will be on your right, and you are up against the wall (like the picture)
-  DemonButler = True; // Set to true if you are using the demon butler (False if you are using regular butler)
+  DemonButler = False; // Set to true if you are using the demon butler (False if you are using regular butler)
 
 Procedure DeclarePlayers;
 Begin
@@ -46,6 +52,7 @@ Procedure SetDTM;
 Begin
   ButlerDTM := DTMFromString('mQwAAAHicY2ZAAEYozQ3EAkC8vD6eIVhOCoxFgHwYZkTCQAAAaLUC+g==');
   DButlerDTM := DTMFromString('mQwAAAHicY2ZgYNBkhGAtIJ4O5C8E4pVAbCLGz7B6yWKG8qIiBn4gH4YZkTAQAADyswY6');
+  BuildDTM := DTMFromString('mggAAAHicY2NgYMgH4mQgzgTiEiDOBuJcIO4G4hYgngDEU4C4CYinAnFnZQxDSqAlQ02KG0NNbghDjJcJQ264LYMcUA4bZsSBIQAAMXwNHA==');
   POSDTM := DTMFromString('mAAEAAHic42FgYCgE4hIgzgbiGig7DYhzgTgHiKuBOB2IG4B4EhCvBeI2IF4MxEuBeAsQb4XK7QPi3UC8GojXA3EfEPt72TLs3rSewdfDmiHIxw7M93azZGiuLYWLgfghfg4MsyZ3M/AD9ZCCGUnEyAAAY5Ea2g==');
 End;
 
@@ -53,6 +60,7 @@ Procedure Fr33DTM;
 Begin
   FreeDTM(ButlerDTM);
   FreeDTM(DButlerDTM);
+  FreeDTM(BuildDTM);
   FreeDTM(POSDTM);
 End;
 
@@ -71,17 +79,17 @@ Begin
       Exit;
   If FindDTMRotated(Choose,X,Y,196,141,240,176,-Pi,Pi,Pi/30,aFound) Then
       Begin
-        Mouse(X,Y,0,0,False);
+        Mouse(X,Y,3,3,False);
         WaitOption('ere',RandomRange(700,900))
         Wait(RandomRange(1000,2000));
-      End;
-  If ((Not FindDTMRotated(Choose,X,Y,281,135,322,194,-Pi,Pi,Pi/30,aFound)) And (OptionsExist(['Exam','mine','Examine','Canc','ncel','Cancel'],False))) Then
+      End;                         //281,135,322,194
+  If Not FindDTMRotated(Choose,X,Y,ba,bb,bc,bd,-Pi,Pi,Pi/30,aFound) Then
       Begin
-        MMouse(200,200,100,100);
-      End;
-  If FindDTMRotated(Choose,X,Y,281,135,322,194,-Pi,Pi,Pi/30,aFound) Then
+        writeln('nofindz');//MMouse(200,200,100,100);
+      End;                    //aaaaaaa 281,135,322,194
+  If FindDTMRotated(Choose,X,Y,ba,bb,bc,bd,-Pi,Pi,Pi/30,aFound) Then
     Begin
-      Mouse(X,Y,4,4,False);
+      Mouse(X,Y,3,3,False);
       If WaitOptionMulti(['etch','from','bank'],RandomRange(700,900)) Then
         Begin
           MarkTime(T);
@@ -91,15 +99,17 @@ Begin
           If (FindNPCChatText('coins',Nothing)) Then
             Begin
               ClickContinue(True, True);
-              TypeSendEx('1',False);
+              TypeSendEx('1',false);
               Wait(RandomRange(800,1000));
-              Mouse(X,Y,4,4,False);
+              if not isuptext('utl') then exit;
+              getmousepos(x,y); //aaaa
+              Mouse(X,Y,0,0,False);
               WaitOption('etch',RandomRange(700,900));
               Wait(randomRange(900, 1100));
             End;
           If (FindNPCChatText('nother', Nothing)) Then
             Begin
-              TypeSendEx('1',False);
+              TypeSendex('1',false);
               Wait(RandomRange(500,700));
               Count := 0;
               Result := True;
@@ -118,14 +128,35 @@ Begin
       Exit;
   If FindDTMRotated(Choose,X1,Y1,196,141,240,176,-Pi,Pi,Pi/30,aFound) Then
     Begin
-      Mouse(X1,Y1,0,0,False);
+      Mouse(X1,Y1,3,3,False);
       WaitOption('ere',RandomRange(700,900))
       Wait(RandomRange(1000,2000));
+    End;
+  If InvCount < 8 Then
+    Begin
+      Marktime(T);
+      Writeln('Low on inventory, waiting for Butler.');
+    Repeat
+      Wait(100)
+    Until ((InvCount > 8) or (TimeFromMark(T) > 8000))
+    End;
+  If InvCount < 8 Then
+    Begin
+      FindButler;
+      Marktime(T);
+      Repeat
+        Wait(100);
+      Until ((InvCount > 8) or (TimeFromMark(T) > 30000))
+    End;
+  If InvCount < 8 Then
+    Begin
+      Writeln('Out of supplies. Goodbye!');
+      Terminatescript;
     End;
   CTS := GetColorToleranceSpeed;
   ColorToleranceSpeed(2);
   SetColorSpeed2Modifiers(0.25, 0.18);
-  FindColorsSpiralTolerance(MSCX, MSCY, pArray, 10791346, A, B, C, D, 12);
+  FindColorsSpiralTolerance(MSCX, MSCY, pArray, 10791346, LA, LB, LC, LD, 12);
   aPArray := TPAtoATPAEx(pArray, 20, 20);
   If (Length(aPArray) = 0) Then
     Begin
@@ -144,33 +175,11 @@ Begin
   For I := 0 To H2 Do
     Begin
       MiddleTPAEx(aPArray[I], X, Y);
-      MMouse(X, Y, 5, 5);
+      MMouse(X, Y, 3, 3);
       If (WaitUpTextMulti(['Wal','alk'],300)) Then
         Begin
-          GetMousePos(X,Y);
+          getmousepos(x,y);
           Mouse(X,Y,0,0,False);
-          If InvCount < 8 Then
-            Begin
-              Marktime(T);
-              Writeln('Low on inventory, waiting for Butler.');
-            Repeat
-              Wait(100)
-            Until ((InvCount > 8) or (TimeFromMark(T) > 8000))
-            End;
-          If InvCount < 8 Then
-            Begin
-              MMouse(200,200,100,100);
-              FindButler;
-              Marktime(T);
-              Repeat
-                Wait(100);
-              Until ((InvCount > 8) or (TimeFromMark(T) > 30000))
-            End;
-          If InvCount < 8 Then
-            Begin
-              Writeln('Out of supplies. Goodbye!');
-              Terminatescript;
-            End;
           If WaitOptionMulti(['uild','Buil'],RandomRange(700,900)) Then
             Begin
               Wait(RandomRange(300,400));
@@ -261,36 +270,37 @@ Begin
   If(Not(LoggedIn)) then
     Exit;
   Result := False;
-  MMouse(114,141,8,10);
+  mouseBox(98, 128, 127, 150, mouse_Move);
   GetMousePos(X,Y);
   If WaitUpTextMulti(['uild','Oak','rder','lard'],RandomRange(1300,1500)) Then
     Begin
       Mouse(X,Y,0,0,True);
-      Wait(400);
-      If FlagPresent Then
-        Begin
-          Mouse(261,177,1,1,True);
+    End
+    Else FindEmpty;
+  Wait(400);
+  If FlagPresent Then
+    Begin
+      Mouse(261,177,5,5,True); //aaaaa, was 1,1, idk
+    Repeat
+      Wait(100);
+    Until (Not(Ismoving));
+    If FindDTMRotated(POSDTM,X1,Y1,MSX1,MSY1,MSX2,MSY2,-Pi,Pi,Pi/30,aFound) Then
+      Begin
+        Mouse(X1,Y1,3,3,True);
+        Wait(600);
         Repeat
           Wait(100);
         Until (Not(Ismoving));
-        If FindDTMRotated(POSDTM,X1,Y1,MSX1,MSY1,MSX2,MSY2,-Pi,Pi,Pi/30,aFound) Then
-          Begin
-            Mouse(X1,Y1,0,0,True);
-            Wait(600);
-            Repeat
-              Wait(100);
-            Until (Not(Ismoving));
-          End;
-        End
-        Else
-        Begin
-          Count := Count + 1;
-          LarderCount := LarderCount + 1;
-          XP := LarderCount * 480;
-          MessCount := 0;
-          Result:=True;
-          ProgressReport;
-        End;
+      End;
+    End
+    Else
+    Begin
+      Count := Count + 1;
+      LarderCount := LarderCount + 1;
+      XP := LarderCount * 480;
+      MessCount := 0;
+      Result:=True;
+      ProgressReport;
     End;
 End;
 
@@ -304,7 +314,7 @@ Begin
     Exit;
   If FindDTMRotated(Choose,X1,Y1,196,141,240,176,-Pi,Pi,Pi/30,aFound) Then
     Begin
-      Mouse(X1,Y1,0,0,False);
+      Mouse(X1,Y1,3,3,False);
       WaitOption('ere',RandomRange(700,900))
       Wait(RandomRange(1000,2000));
     End;
@@ -318,7 +328,7 @@ Begin
   CTS1 := GetColorToleranceSpeed;
   ColorToleranceSpeed(2);
   SetColorSpeed2Modifiers(0.06, 0.37);
-  FindColorsSpiralTolerance(MSCX, MSCY, pArray2, 4616332, A, B, C, D, 17);
+  FindColorsSpiralTolerance(MSCX, MSCY, pArray2, 4616332, LA, LB, LC, LD, 17);
   aPArray2 := TPAtoATPAEx(pArray2, 20, 20);
   If (Length(aPArray2) = 0) Then
     Begin
@@ -336,10 +346,10 @@ Begin
   For I := 0 To H Do
     Begin
       MiddleTPAEx(aPArray2[I], X, Y);
-      MMouse(X, Y, 5, 5);
+      MMouse(X, Y, 3, 3);
       If (WaitUpTextMulti(['earc','Sear','arch','arder'],400)) Then
         Begin
-          GetMousePos(X,Y);
+          getmousepos(x,y);
           Mouse(X,Y,0,0,False);
           If WaitOption('emove',RandomRange(700,900)) Then
             Begin
@@ -353,7 +363,7 @@ Begin
                   Exit;
                 End
                 Else
-                  TypeSend('1');
+                  TypeSendex('1',false);
                   Wait(randomRange(900, 1000));
                   ColorToleranceSpeed(CTS1);
                   SetColorSpeed2Modifiers(0.2, 0.2);
@@ -394,7 +404,7 @@ Begin
   Smart_Signed := True;
   ClearDebug;
   SetupSRL;
-  SmartSetRefresh(75);
+  SmartSetRefresh(100);
   SMART_ClearMS;
   SMART_ClearCanvas;
   DeclarePlayers;
