@@ -1,0 +1,930 @@
+///////////////////////////////////////////////////////////////////////
+//                                                                   //
+//          READ THE DIRECTIONS IN THE OP FIRST OR ELSE              //
+//           Make sure you have setup your player file               //
+//                  Under SRL>PlayerManager                          //
+//                       Press Play                                  //
+//                                                                   //
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+
+Program AshamanConstruction;
+  {$IFDEF RAYMONDPOWNS}{wrappers} function FloodFillTPAWrap(const TPA: TPointArray): T2DPointArray; var tempATPA: T2DPointArray; begin tempATPA:= FloodFillTPA(TPA); Result:= tempATPA; SetLength(tempATPA, 0); end; function FindTPAEdges(const p: TPointArray): TPointArray; begin FindTPAEdgesWrap(p, result); end; Function RotatePoints(Const P: TPointArray; A, cx, cy: Extended): TPointArray; begin RotatePointsWrap(P, A, cx, cy, result); end; function TPAFromCircle(const CX, CY, Radius: Integer): TPointArray; begin TPAFromCircleWrap(CX, CY, Radius, result); end; function TPAFromEllipse(const CX, CY, XRadius, YRadius : Integer): TPointArray; begin TPAFromEllipseWrap(CX, CY, XRadius, YRadius, result); end; function TPAFromBox(const Box : TBox) : TPointArray; begin TPAFromBoxWrap(Box, result); end; Function ReturnPointsNotInTPA(Const TotalTPA: TPointArray; const Box: TBox): TPointArray; begin ReturnPointsNotInTPAWrap(TotalTPA, Box, result); end; function CombineIntArray(const Ar1, Ar2: TIntegerArray): TIntegerArray; begin CombineIntArrayWrap(Ar1, Ar2, result); end; function ReArrangeandShortenArray(const a: TPointArray; Dist: Integer): TPointArray; begin ReArrangeandShortenArrayWrap(a, Dist, result); end; function ReArrangeandShortenArrayEx(const a: TPointArray; w, h: Integer): TPointArray; begin ReArrangeandShortenArrayExWrap(a, w, h, result); end; function CombineTPA(const Ar1, Ar2: TPointArray): TPointArray; begin CombineTPAWrap(Ar1, Ar2, Result); end; function RemoveDistTPointArray(x, y, dist: Integer;const ThePoints: TPointArray; RemoveHigher: Boolean): TPointArray; begin RemoveDistTPointArrayWrap(x, y, dist, ThePoints, RemoveHigher, Result); end; function TPAFromText(const text, font: String; var w,h: Integer): TPointArray; begin TPAFromTextWrap(text, font, w, h, result); end; function GetColors(const Coords: TPointArray): TIntegerArray; begin GetColorsWrap(Coords, Result); end; function Explode(del, str: string): TStringArray; begin ExplodeWrap(del, str, Result); end; function MergeATPA(const ATPA : T2DPointArray): TPointArray; begin MergeATPAWrap(ATPA, Result); end; function SplitTPA(arr : TPointArray; dist : Integer) : T2DPointArray; begin SplitTPAWrap(arr, dist, result); end; function SplitTPAEx(arr : TPointArray; w, h : integer) : T2DPointArray; begin SplitTPAExWrap(Arr, w, h, result); end; function ClearTPAFromTPA(arP, ClearPoints : TPointArray) : TPointArray; begin ClearTPAFromTPAWrap(arP, ClearPoints, result); end; function TPAToATPAEx(arP : TPointArray; w, h : integer) : T2DPointArray; begin TPAtoATPAExWrap(arP, w, h, result); end; function TPAToATPA(arP : TPointArray; dist : Integer) : T2DPointArray; begin TPAtoATPAWrap(arP, dist, result); end; function FindGapsTPA(TPA : TPointArray; MinPixels : integer) : T2DPointArray; begin FindGapsTPAWrap(tpa, MinPixels, result); end; {$ENDIF}
+  {$Define SMART}
+  {$I SRL-6/SRL.Simba}
+  {$i srl-6/lib/misc/srlplayerform.simba}
+
+Var
+  LarderCount,XP,StartingExperience,LardersPH,XPH,BX,BY,TimeToRun,Direction:Integer;
+  Count,Start,Counts,Color,Tolerance,RunTime,MiniBreakTime: Integer;
+  LarderX1,LarderY1,LarderX2,LarderY2,ButlerX1,ButlerY1,ButlerX2,ButlerY2: Integer;
+  RunTimer,MiniBreak,Timeout: TTimeMarker;
+  LarderBox,ButlerBox,BuildBox: TBox;
+  Hue,Sat: Extended;
+  FirstMouse, AlreadyClicked, Skip,DemonButler,MiniBreaks: Boolean;
+  Method: String;
+
+Const
+  ScriptVersion = '8.0';
+  Debug = False;
+  BuildMenuDebug = False;
+  EmptySpotDebug = False;
+
+
+procedure declarePlayers();
+var
+  i,j: integer;
+begin
+  players.setup(playerForm.playerNames, playerForm.playerFile); // load the SPF players from the SRL Player Manager
+  currentPlayer := 0;                                           // player to use first
+
+  // set player attributes based on the settings from the form
+  for i := 0 to high(players) do
+    with players[i] do
+    begin
+      // convert the integers
+      TimetoRun := strToInt(playerForm.players[i].settings[0]);  //time to run
+
+      Case playerForm.players[i].settings[4] Of
+        'NORTH': Direction := 0;
+        'SOUTH': Direction := 180;
+        'EAST': Direction := 90;
+        'WEST': Direction := 270;
+      End;
+
+      MouseSpeed:= strToInt(playerForm.players[i].settings[1]) + GaussRangeInt(-5,5);
+
+      MiniBreaks:= strToBool(playerForm.players[i].settings[2]);
+
+      // any other data types you've decided to use
+      If playerForm.players[i].settings[3]= 'Demon' Then
+        DemonButler:=True;
+
+      Method := playerForm.players[i].settings[5]; //Method
+    end;
+end;
+
+// initiates the SRL player form (you aren't restricted to the procedure name; it can be whatever you want)
+procedure initPlayerForm();
+begin
+  with playerForm do
+  begin
+    name := 'AshamanContruction v'+toStr(ScriptVersion); // the title of the SPF, usually the name of your script
+    scriptHelpThread := '';           // a link to a help thread, if set to '' will link to my setup guide
+    scriptSettingsPath := '';         // where you want the settings file to be saved; saved in script's path by default
+
+    editBoxLabels := ['TimeToRun','MouseSpeed']; // edit boxes are created for each array element
+    editBoxDefaults := ['8','25'];                                             // optional default values for each edit box; array length must equal editBoxLabel length
+    checkBoxLabels := ['MiniBreaks'];        // same as editBoxLabels but for check boxes
+    checkBoxDefaults := ['True'];
+
+    comboBoxLabels := ['Butler','FaceDirection','Method'];                                                // same as editBoxLabels but for combo boxes (drop down boxes)
+    comboBoxDefaults := ['Demon','SOUTH','OakLarder'];
+
+    // this needs to be done for every element in the comboBoxLabels array
+    setLength(comboBoxItems, length(comboBoxLabels));
+    comboBoxItems[0] := ['Demon','Regular'];       // all the options available for the first combo box
+    comboBoxItems[1] := ['NORTH','SOUTH','EAST','WEST'];       // all the options available for the first combo box
+    comboBoxItems[2] := ['OakLarder','OakDungeonDoor'];       // all the options available for the first combo box
+  end;
+end;
+
+function TRSChatBox.getXP: Integer;
+var
+  b: TBox;
+  s: String;
+  tpa : TPointArray;
+  atpa : T2DPointArray;
+  i,cts,p: Integer;
+begin
+  b := self.getBounds();
+  b.edit(+(b.x2-b.x1)-140, +10, -5, -94);
+
+  findColorsTolerance(tpa, 14013909, b, 4,colorSetting(2, 0.00, 0.00));
+
+  if length(tpa) < 2 then
+  begin
+    print('chatBox.getXP(): No XP found', TDebug.SUB);
+    Exit;
+  end;
+
+  atpa := tpa.cluster(5);
+
+  b:= atpa.getbounds;
+  b.edit(-2,-2,+2,+3);
+
+  s:=Replace(tesseractgettext(b.x1,b.y1,b.x2,b.y2, FILTER_SMALL_CHARS), ' ', '', [rfReplaceAll]);
+
+  P := Pos('x', S);
+  if P > 0 then
+    Result := StrToIntDef(ExtractFromStr(Copy(s, P, Length(S)), Numbers), 0)
+  else
+    Result := StrToIntDef(ExtractFromStr(S, Numbers), 0);
+
+  print('chatBox.getXP(): XP found: ' + tostr(result), TDebug.SUB);
+end;
+
+{*******************************************************************************
+Function AutoupdateMe;
+By: Shuttleu
+Edited By: Ashaman88
+Description: Autoupdates Script.
+*******************************************************************************}
+Procedure AutoUpdateMe;
+Var
+  Neifile: Integer;
+  OnlineVersion, NewScript, NeiFeilNennen: String;
+Begin
+  Writeln('Checking for script updates...');
+  OnlineVersion := GetPage('http://ashamanlarder.googlecode.com/git/Version.txt');
+  Writeln('Online Version: '+ToStr(OnlineVersion));
+  Writeln('Local Version: '+ToStr(ScriptVersion));
+  If (trim(OnlineVersion) > ScriptVersion) Then
+  Begin
+    WriteLn('Newer script version online!');
+    WriteLn('Autoupdating to newer version.');
+    NewScript := GetPage('http://ashamanlarder.googlecode.com/git/AshamanConstruction.simba');
+    NeiFeilNennen := ScriptPath+ 'AshamanConstruction V'+OnlineVersion+'.simba';
+    Neifile := Rewritefile(NeiFeilNennen, true);
+    Try
+      WriteFileString(Neifile, NewScript);
+    Except
+      Begin
+        WriteLn('Fatal error writing to '+NeiFeilNennen+'!!');
+        Terminatescript;
+      End;
+    End;
+    CloseFile(Neifile);
+    WriteLn('New script downloaded to '+NeiFeilNennen+'!! Please use this one!!');
+    TerminateScript;
+  End Else
+    WriteLn('You have the latest version of the script!');
+End;
+
+Function FindNormalRandoms: Boolean;
+Begin
+  Result:= ExitSquealOfFortune Or ClaimSpinTicket;
+End;
+
+Procedure MiniBreaker;
+Begin
+  If Not MiniBreaks Then
+    Exit;
+
+  If MiniBreak.GetTime>MiniBreakTime Then
+  Begin
+    Writeln('MiniBreak');
+    MouseOffClient(4);
+    Wait(RandomRange(13000,85000));
+    Timeout.Reset;
+    Timeout.Start;
+    MiniBreak.Reset;
+    MiniBreak.Start;
+    MiniBreakTime:=RandomRange(1800000,3600000);
+  End;
+End;
+
+Function EmptySpot: Boolean;
+Begin
+  Result:=(countColorTolerance(8950686, LarderBox, 25, colorSetting(2, 0.34,0.33))>350);
+
+  If EmptySpotDebug Then
+    Writeln('EmptySpot Length: '+ToStr(countColorTolerance(8950686, LarderBox, 25, colorSetting(2, 0.34,0.33))));
+End;
+
+Function BuildMenu: Boolean;
+Begin
+  Result:= GetColor(514,55) = 2530541;
+
+  If BuildMenuDebug Then
+    Writeln('BuildMenu Coords: '+ToStr(GetColor(514,55)));
+End;
+
+Function FailSafe: Boolean;
+Var
+  CTS:Integer;
+  TPA: TPointArray;
+  ATPA: T2DPointArray;
+  T: TTimeMarker;
+Begin
+  Result:=False;
+
+  If Debug Then
+    Writeln('ENTERING FAILSAFE FUNCTION');
+
+  Mouse(Point(289+GaussRangeInt(-10,10),203+GaussRangeInt(-10,10)),Mouse_Left,Mouse_Human);
+  Wait(RandomRange(300,400));
+
+  T.Start;
+  Repeat
+    Wait(100);
+    If T.GetTime>5000 Then
+      Exit;
+  Until (Not(Minimap.IsPlayerMoving));
+
+  CTS := GetToleranceSpeed;
+  SetColorToleranceSpeed(2);
+
+  SetToleranceSpeed2Modifiers(Hue,Sat);
+  FindColorsSpiralTolerance(MainScreen.PlayerPoint.X,MainScreen.PlayerPoint.Y,TPA,Color,ButlerX1,ButlerY1,ButlerX2,ButlerY2,Tolerance);
+  SetColorToleranceSpeed(CTS);
+  SetToleranceSpeed2Modifiers(0.2,0.2);
+
+  ATPA := TPAtoATPAEx(TPA,20,20);
+
+  If Debug Then
+    DebugATPA(ATPA);
+
+  If (Length(ATPA) = 0) Then
+  Begin
+    If Debug Then
+      Writeln('No Butler found.');
+    Exit;
+  End Else
+  Begin
+    If Debug Then
+      Writeln('Butler found.');
+    Result:=True;
+  End;
+End;
+
+Procedure TypeFast(Text: String);
+Var
+  I: Integer;
+Begin
+  For I:=1 to Length(Text) Do
+    {$IFDEF SIMBAMAJOR980}
+    SendKeys(Text[I], 10 + Random(2));
+    {$ELSE}
+    SendKeys(Text[I], 10 + Random(2), 10 + Random(2));
+    {$ENDIF}
+End;
+
+
+function TRSChooseOption.selecter(txt: TStringArray): boolean; overload;
+begin
+  result := self._select(txt, MOUSE_Move, true, 1.00, 800);
+end;
+
+Function FindButler(GetPoint: Boolean=False): Boolean;
+Var
+  H,I: Integer;
+  TPA: TPointArray;
+  ATPA: T2DPointArray;
+  T: TTimeMarker;
+Label
+  JumpD,Jump;
+Begin
+  Result := False;
+
+  If Not IsLoggedIn Then
+    Exit;
+
+  FindNormalRandoms;
+
+  MiniBreaker;
+
+  ConversationBox.Continue(True,False);
+
+  If (ChooseOption.OptionsExist(['etch','from','bank'],400)) Then
+    GoTo JumpD;
+
+  findColorsTolerance(tpa, Color, ButlerBox, Tolerance,colorSetting(2, Hue,Sat));
+  ATPA := TPA.Cluster(20);
+  ATPA.FilterBetween(0,20);
+  ATPA.SortBySize;
+
+  If (Length(ATPA) = 0) Then
+  Begin
+    If Debug Then
+      Writeln('No butler found.');
+    Exit;
+  End;
+
+  H := High(ATPA);
+
+  For I:= 0 To Min(H,4) Do
+  Begin
+    MiddleTPAEx(ATPA[I],BX,BY);
+
+    If GetPoint Then
+      Exit;
+
+    Jump:
+    ConversationBox.Continue(True,True);
+    If Not (IsMouseOverText(['utle','tler','Butl'],10)) Then
+      Mouse(BX,BY,4,4);
+
+    If (IsMouseOverText(['utle','tler','Butl'])) Then
+      Break;
+
+    If (I=H) Or (I=4) Then
+      Exit;
+  End;
+
+  If (Method) = 'OakDungeonDoor' Then
+    If (Not AlreadyClicked) Then
+      If (TabBackpack.Count=18) Or (TabBackpack.Count<10) Then
+      Begin
+        FastClick(Mouse_Left);
+
+        If Not TabBackpack.WaitforShift(RandomRange(1000,2000)) Then
+          AlreadyClicked:=True;
+      End;
+
+  If Debug Then
+    Writeln('Found Butler, Clicking.');
+
+  If Not AlreadyClicked Then
+  Begin
+
+    FastClick(Mouse_Right);
+
+    JumpD:
+
+    If ChooseOption.Select(['etch','from','bank']) Then
+    Begin
+      If Debug Then
+        Writeln('Found fetch option.');
+
+      T.Start;
+      Repeat
+        If CountColor(618917,ConversationBox.GetBounds)=0 Then
+          Break;
+        If T.GetTime>4000 Then
+        Begin
+          If Debug Then
+            Writeln('Orange highlight color for paying butler didnt go away');
+          Exit;
+        End;
+      Until Not IsLoggedIn;
+
+      T.Start;
+      Repeat
+        Wait(Random(200));
+        If T.GetTime > 8000 Then
+        Begin
+          If Debug Then
+            Writeln('Didnt find butler chat option timeout');
+          Exit;
+        End;
+      Until (ConversationBox.IsOpen);
+    End;
+
+
+    ConversationBox.Continue(True,True);
+
+
+    AlreadyClicked:=False;
+    ConversationBox.selectOption(1);
+
+    T.Start;
+    Repeat
+      If CountColor(618917,ConversationBox.GetBounds)=17 Then
+        Break;
+      If T.GetTime>4000 Then
+      Begin
+        If Debug Then
+          Writeln('Didnt find orange highlight color for paying butler');
+        Exit;
+      End;
+      If ConversationBox.Continue(True,False,False) Then
+        GoTo Jump;
+      If Not ConversationBox.IsOpen Then
+        Break;
+      Wait(Random(100));
+    Until Not IsLoggedIn;
+
+    If (Method) = 'OakDungeonDoor' Then
+      MouseBox(LarderBox);
+    Count:= 0;
+    Result:= True;
+  End;
+End;
+
+function isMouseOverMenuOpen2(var res: TBox; waitTime: integer = 100): boolean;
+var
+  t: integer;
+begin
+  res := [-1, -1, -1, -1];
+  t := (getSystemTime() + waitTime);
+
+  while ((getSystemTime() < t) and (not result)) do
+  begin
+    result := Not __findMouseOverBox(res);
+    wait(20 + random(20));
+  end;
+
+end;
+
+Function FindEmpty:Boolean;
+Var
+  POSX,POSY: Integer;
+  T: TTimeMarker;
+  Box: TBox;
+Begin
+  Result:=False;
+
+  If Not IsLoggedIn Then
+    Exit;
+
+  If Timeout.GetTime > 40000 Then
+  Begin
+    Writeln('Something messed up, shutting down');
+    SaveScreenshot(ScriptPath + '/fail_.bmp');
+    TerminateScript;
+  End;
+
+  If Not EmptySpot Then
+    Exit;
+
+  If (Method) = 'OakDungeonDoor' Then
+  Begin
+    If ((TabBackpack.IsFull) Or (Count >= 2) Or (TabBackpack.Count<10)) And (Not Skip) Then
+    Begin
+      If Count>=2 Then
+        If Debug Then
+          Writeln('Count too high, sending for butler');
+
+      If TabBackpack.IsFull Then
+        If Debug Then
+          Writeln('InvFull, sending for butler');
+
+      If TabBackpack.Count<10 Then
+        If Debug Then
+          Writeln('Inv<10, sending for butler');
+
+      T.Start;
+      Repeat
+        Wait(100);
+        If T.GetTime > 10000 Then
+        Begin
+          If Debug Then
+            Writeln('Took too long to find butler');
+          Break;
+        End;
+      Until FindButler;
+    End;
+  End;
+
+  If Not EmptySpot Then
+    Exit;
+
+  FindButler(True);
+
+  MiniBreaker;
+
+  If Debug Then
+    Writeln('Moving mouse to empty box');
+  MouseBox(LarderBox);
+
+  If (IsMouseOverMenuOpen2(Box,800)) Then
+  Begin
+    If Debug Then
+      Writeln('Found empty spot, clicking.');
+    FastClick(Mouse_Right);
+
+    If TabBackpack.Count < 8 Then
+    Begin
+      T.Start;
+      Writeln('Low on inventory, waiting for Butler.');
+      Repeat
+        Wait(100);
+      Until ((TabBackpack.Count > 8) or (T.GetTime > 8000));
+    End;
+
+    If TabBackpack.Count < 8 Then
+    Begin
+      If Debug Then
+        Writeln('Inventory low, sending for butler.');
+
+      If (ChooseOption.OptionsExist(['Exam','mine','Examine','Canc','ncel','Cancel'],400)) Then
+      Begin
+        If Debug Then
+          Writeln('Closing options menu');
+        MouseOffClient(4);
+      End;
+
+      FindButler;
+
+      If Debug Then
+        Writeln('Re-clickinglarder.');
+
+      MouseBox(LarderBox, Mouse_Right);
+
+      T.Start;
+      Repeat
+        Wait(100);
+      Until ((TabBackpack.Count > 8) or (T.GetTime > 30000));
+    End;
+
+    If TabBackpack.Count < 8 Then
+    Begin
+      Writeln('Out of supplies. Goodbye!');
+      Players[CurrentPlayer].Logout;
+      Terminatescript;
+    End;
+
+    If ChooseOption.Select(['uild','Buil'],RandomRange(700,900)) Then
+    Begin
+      If Debug Then
+          Writeln('Clicking build option');
+        If Debug Then
+          Writeln('Moving mouse to build door icon.');
+        MouseBox(BuildBox);
+        T.Start;
+        Repeat
+          Wait(Random(40));
+          If T.GetTime>5000 Then
+            Exit;
+        Until BuildMenu;
+        Result:= True;
+        FirstMouse:=False;
+    End;
+  End;
+End;
+
+Procedure ProgressReport;
+Begin
+  If Not Debug Then
+    ClearDebug;
+
+  XP := (ChatBox.GetXP - StartingExperience);
+  XPH := Round(XP * (3600.0 / (GetTimeRunning / 1000.0)));
+  LardersPH := Round((LarderCount * (3600.0 / (GetTimeRunning / 1000.0))));
+
+  writeln('|=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=|');
+  writeln('|                AshamanConstruction v'+PadR(toStr(ScriptVersion), 22), '|');
+  writeln('|=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=|');
+  writeln(PadR('| Running For: '+TimeRunning, 60)+'|');
+  writeln(PadR('| '+Method+'''s Made: ' + GroupDigits(LarderCount,','), 40) + padR('Made/H: ' + GroupDigits(LardersPH,','), 20) + '|');
+  writeln(PadR('| Exp Earned: ' + GroupDigits(XP,','), 40) + padR('Exp/Hour: ' + GroupDigits(XPH,','), 20) + '|');
+  writeln('|___________________________________________________________|');
+  writeln('|___________________________________________________________|');
+
+  Timeout.Start;
+End;
+
+Procedure FindBuild;
+Var
+  T: TTimeMarker;
+Begin
+  If Not IsLoggedIn Then
+    Exit;
+
+  If Not BuildMenu Then
+    Exit;
+
+  MiniBreaker;
+
+  MouseBox(BuildBox);
+
+  If WaitFunc(@BuildMenu,100,RandomRange(3000,3200)) Then
+  Begin
+    If Debug Then
+      Writeln('Build icon is up, clicking');
+
+    FastClick(Mouse_Left);
+
+    Inc(Start);
+    Inc(Count);
+    Inc(LarderCount);
+    If (Method) = 'OakLarder' Then
+    Begin
+      If (Count < Counts) And (Start<>1) Then
+        MouseBox(LarderBox) Else
+        Mouse(BX,BY,+GaussRangeInt(-2,2),+GaussRangeInt(-2,2));
+    End Else
+      MouseBox(LarderBox);
+
+    T.Start;
+    Repeat
+      Wait(Random(50));
+      If (T.GetTime>5000) Then
+        Exit;
+    Until Not BuildMenu;
+
+    If (Count < Counts) Or (Start=1) Or ((Method) = 'OakDungeonDoor') Then
+    Begin
+      Wait(RandomRange(100,200));
+
+      T.Start;
+      Repeat
+        Wait(Random(50));
+        If (T.GetTime>5000) Then
+          Exit;
+      Until Not EmptySpot;
+
+      FindButler(True);
+    End;
+    ProgressReport;
+  End;
+End;
+
+Procedure FindBuilt;
+Var
+  T: TTimeMarker;
+  Box: TBox;
+Begin
+  If Not IsLoggedIn Then
+    Exit;
+
+  If (Start = 1) and ((method)='OakLarder') Then
+  Begin
+    If Debug Then
+      Writeln('Sending butler 1st time');
+    T.Start;
+    Repeat
+      Wait(100);
+      If T.GetTime > 10000 Then
+      Begin
+        If Debug Then
+          Writeln('Took too long to find butler');
+        Break;
+      End;
+    Until FindButler;
+  End;
+
+  FindButler(True);
+
+  If ((Count >= Counts)) and ((Method)='OakLarder') Then
+  Begin
+    If Debug Then
+      Writeln('Count too high, sending for butler');
+
+    T.Start;
+    Repeat
+      Wait(100);
+      If T.GetTime > 10000 Then
+      Begin
+        If Debug Then
+          Writeln('Took too long to find butler');
+        Break;
+      End;
+    Until FindButler;
+  End;
+
+  If EmptySpot Then
+    Exit;
+
+  MiniBreaker;
+
+  If Debug Then
+    Writeln('Moving to built item box');
+
+  MouseBox(LarderBox);
+
+  If (IsMouseOverText(['earc','Sear','arch','arder','utle','tler','Butl','Open','oor'])) Then
+  Begin
+    If Debug Then
+      Writeln('Found larder, clicking');
+
+    FastClick(Mouse_Right);
+
+    If (DemonButler) And ((Method) = 'OakLarder') Then
+    Begin
+      If (TabBackpack.Count < 8) Or (Start = 2) Then
+      Begin
+        T.Start;
+        If Debug Then
+          Writeln('Low on inventory, waiting for Butler.');
+        ChooseOption.Selecter(['emove']);
+        Repeat
+          Wait(100);
+        Until ((TabBackpack.IsFull) or (T.GetTime > 8000));
+      End;
+
+      If TabBackpack.Count < 8 Then
+      Begin
+        If Debug Then
+          Writeln('Inventory low, sending for butler.');
+
+        If (ChooseOption.OptionsExist(['Exam','mine','Examine','Canc','ncel','Cancel'],400)) Then
+        Begin
+          If Debug Then
+            Writeln('Closing options menu');
+          MouseOffClient(4);
+        End;
+
+        FindButler;
+
+        If Debug Then
+          Writeln('Re-clickinglarder.');
+
+        MouseBox(LarderBox,Mouse_Right);
+
+        T.Start;
+        Repeat
+          Wait(100);
+        Until ((TabBackpack.Count > 8) or (T.GetTime > 30000));
+      End;
+
+      If TabBackpack.Count < 8 Then
+      Begin
+        Writeln('Out of supplies. Goodbye!');
+        Players[CurrentPlayer].Logout;
+        Terminatescript;
+      End;
+    End;
+
+    If Not ChooseOption.Select(['emove'],RandomRange(700,900)) Then
+      Exit;
+
+    If Debug Then
+      Writeln('Clicked option to remove');
+
+    T.Start;
+    Repeat
+      Wait(Random(200));
+      If T.GetTime > 4000 Then
+      Begin
+        If Debug Then
+          Writeln('Yes option didnt pop up.');
+        Exit;
+      End;
+    Until (ConversationBox.SelectOption(1));
+
+    T.Start;
+    Repeat
+      If CountColor(618917,ConversationBox.GetBounds)>0 Then
+        Break;
+      If T.GetTime>4000 Then
+      Begin
+        If Debug Then
+          Writeln('Didnt find orange highlight color for saying yes');
+        Exit;
+      End;
+    Until Not IsLoggedIn;
+
+    Skip:=False;
+    If (Count < Counts) Or ((Method)='OakDungeonDoor') Then
+    Begin
+      If Debug Then
+        Writeln('Count is less, moving to empty spot');
+      If Count < Counts Then
+        MouseBox(LarderBox);
+      T.Start;
+      Repeat
+        Wait(Random(50));
+        If (T.GetTime>5000) Then
+          Exit;
+        If ((Method)='OakDungeonDoor') Then
+          If FindButler Then
+            Skip:=True;
+      Until EmptySpot;
+    End;
+  End;
+End;
+
+Procedure MainLoop;
+Begin
+  FindEmpty;
+  FindBuild;
+  FindBuilt;
+End;
+
+Procedure Setup;
+Begin
+  AutoUpdateMe;
+  SmartEnableDrawing := True;
+
+  initPlayerForm(); // initiate your settings
+  runPlayerForm();  // run the form
+
+  // use this so the script doesn't continue if the user exits out of the form
+  if (not playerForm.isScriptReady) then
+    terminatescript;
+
+  declarePlayers();
+
+  SetupSRL;
+  DisableSRLDebug:=True;
+
+  ClearDebug;
+
+  If (Not IsLoggedIn) Then
+  Begin
+    Writeln('Please log in and setup the position as needed');
+    TerminateScript;
+  End;
+
+  DisableSRLDebug:=True;
+  ClearDebug;
+
+  If TabBackpack.Count < 28 Then
+    Repeat
+      Writeln('Please get a full inventory of planks');
+      Wait(RandomRange(3000,4000));
+    Until (TabBackpack.Count = 28);
+
+  Minimap.SetAngle(Direction);
+  MainScreen.SetAngle(MS_ANGLE_HIGH);
+
+  BX:=Mainscreen.playerPoint.X;
+  BY:=Mainscreen.playerPoint.Y;
+
+  StartingExperience := ChatBox.GetXP;
+
+  Timeout.Start;
+  MiniBreak.Start;
+  MiniBreakTime:=RandomRange(1800000,3600000);
+
+  RunTimer.Start;
+  RunTime:= Round(TimetoRun * 60 * 60 * 1000 + Random(300000));
+  Writeln('You are going to run for ' + MsToTime(RunTime, Time_Formal));
+  FirstMouse:=True;
+  MouseSpeed:=RandomRange(30,45);
+
+  If DemonButler Then
+  Begin
+    Counts    := 3;
+    Color     := 1580857;
+    Tolerance := 12;
+    Hue       := 0.30;
+    Sat       := 1.21;
+    Writeln('You are using the Demon Butler');
+  End Else
+  Begin
+    Counts    := 2;
+    Color     := 1055559;
+    Tolerance := 10;
+    Hue       := 0.32;
+    Sat       := 1.30;
+    Writeln('You are using the Normal Butler');
+  End;
+
+
+  If (Method) = 'OakLarder' Then
+  Begin
+    LarderX1:=253;
+    LarderY1:=127;
+    LarderX2:=273;
+    LarderY2:=168;
+    ButlerX1:=253;
+    ButlerY1:=175;
+    ButlerX2:=304;
+    ButlerY2:=234;
+    BuildBox:=[204,151,281,199];
+  End Else
+  Begin
+    Counts   := 2;
+    LarderX1:=219;
+    LarderY1:=159;
+    LarderX2:=281;
+    LarderY2:=200;
+    ButlerX1:=Mainscreen.GetBounds.X1;
+    ButlerY1:=Mainscreen.GetBounds.Y1;
+    ButlerX2:=Mainscreen.GetBounds.X2;
+    ButlerY2:=Mainscreen.GetBounds.Y2;
+    BuildBox:=[219,111,240,133];
+  End;
+
+  LarderBox:=IntToBox(LarderX1,LarderY1,LarderX2,LarderY2);
+  SmartImage.DrawBox(LarderBox);
+  ButlerBox:=[ButlerX1,ButlerY1,ButlerX2,ButlerY2];
+End;
+
+Begin
+  Setup;
+  Repeat
+    Mainloop;
+  Until (RunTime < (RunTimer.GetTime)) Or (Not IsLoggedIn);
+End.
