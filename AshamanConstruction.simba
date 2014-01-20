@@ -63,7 +63,7 @@ Var
   Method: String;
 
 Const
-  ScriptVersion = '8.0';
+  ScriptVersion = '8.1';
   Debug = False;
   BuildMenuDebug = False;
   EmptySpotDebug = False;
@@ -350,10 +350,10 @@ Begin
 
     Jump:
     ConversationBox.Continue(True,True);
-    If Not (IsMouseOverText(['utle','tler','Butl'],10)) Then
+    If Not (IsMouseOverText(['utle','tler','Butl','emon'],10)) Then
       Mouse(BX,BY,4,4);
 
-    If (IsMouseOverText(['utle','tler','Butl'])) Then
+    If (IsMouseOverText(['utle','tler','Butl','emon'])) Then
       Break;
 
     If (I=H) Or (I=4) Then
@@ -375,7 +375,6 @@ Begin
 
   If Not AlreadyClicked Then
   Begin
-
     FastClick(Mouse_Right);
 
     JumpD:
@@ -393,6 +392,7 @@ Begin
         Begin
           If Debug Then
             Writeln('Orange highlight color for paying butler didnt go away');
+          AlreadyClicked:=False;
           Exit;
         End;
       Until Not IsLoggedIn;
@@ -408,36 +408,36 @@ Begin
         End;
       Until (ConversationBox.IsOpen);
     End;
-
-
-    ConversationBox.Continue(True,True);
-
-
-    AlreadyClicked:=False;
-    ConversationBox.selectOption(1);
-
-    T.Start;
-    Repeat
-      If CountColor(618917,ConversationBox.GetBounds)=17 Then
-        Break;
-      If T.GetTime>4000 Then
-      Begin
-        If Debug Then
-          Writeln('Didnt find orange highlight color for paying butler');
-        Exit;
-      End;
-      If ConversationBox.Continue(True,False,False) Then
-        GoTo Jump;
-      If Not ConversationBox.IsOpen Then
-        Break;
-      Wait(Random(100));
-    Until Not IsLoggedIn;
-
-    If (Method) = 'OakDungeonDoor' Then
-      MouseBox(LarderBox);
-    Count:= 0;
-    Result:= True;
   End;
+
+
+  ConversationBox.Continue(True,True);
+
+
+  AlreadyClicked:=False;
+  ConversationBox.selectOption(1);
+
+  T.Start;
+  Repeat
+    If CountColor(618917,ConversationBox.GetBounds)=17 Then
+      Break;
+    If T.GetTime>4000 Then
+    Begin
+      If Debug Then
+        Writeln('Didnt find orange highlight color for paying butler');
+      Exit;
+    End;
+    If ConversationBox.Continue(True,False,False) Then
+      GoTo Jump;
+    If Not ConversationBox.IsOpen Then
+      Break;
+    Wait(Random(100));
+  Until Not IsLoggedIn;
+
+  If (Method) = 'OakDungeonDoor' Then
+    MouseBox(LarderBox);
+  Count:= 0;
+  Result:= True;
 End;
 
 function isMouseOverMenuOpen2(var res: TBox; waitTime: integer = 100): boolean;
