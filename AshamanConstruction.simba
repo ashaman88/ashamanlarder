@@ -63,9 +63,9 @@ Var
   Method: String;
 
 Const
-  ScriptVersion = '8.1';
+  ScriptVersion = '8.11';
   Debug = False;
-  BuildMenuDebug = False;
+  BuildMenuDebug = false;
   EmptySpotDebug = False;
 
 
@@ -133,7 +133,7 @@ var
   s: String;
   tpa : TPointArray;
   atpa : T2DPointArray;
-  i,cts,p: Integer;
+  i,cts,p,p2: Integer;
 begin
   b := self.getBounds();
   b.edit(+(b.x2-b.x1)-140, +10, -5, -94);
@@ -146,15 +146,17 @@ begin
     Exit;
   end;
 
-  atpa := tpa.cluster(5);
+  atpa := tpa.cluster(10);
+  atpa.sortFromFirstPoint(point(b.x2,b.y2));
 
-  b:= atpa.getbounds;
+  b:= atpa[low(atpa)].getbounds;
   b.edit(-2,-2,+2,+3);
 
   s:=Replace(tesseractgettext(b.x1,b.y1,b.x2,b.y2, FILTER_SMALL_CHARS), ' ', '', [rfReplaceAll]);
 
   P := Pos('x', S);
-  if P > 0 then
+  P2 := Pos('X', S);
+  if (P > 0) Or (P2 > 0) then
     Result := StrToIntDef(ExtractFromStr(Copy(s, P, Length(S)), Numbers), 0)
   else
     Result := StrToIntDef(ExtractFromStr(S, Numbers), 0);
@@ -232,10 +234,10 @@ End;
 
 Function BuildMenu: Boolean;
 Begin
-  Result:= GetColor(514,55) = 2530541;
+  result := countColorTolerance(5063210, intToBox(81, 61, 491, 73), 7) > 20;
 
   If BuildMenuDebug Then
-    Writeln('BuildMenu Coords: '+ToStr(GetColor(514,55)));
+    Writeln('BuildMenu Count: '+ToStr(countColorTolerance(5063210, intToBox(81, 61, 491, 73), 7)));
 End;
 
 Function FailSafe: Boolean;
@@ -834,6 +836,8 @@ Begin
     terminatescript;
 
   declarePlayers();
+
+  smartPlugins := ['OpenGL32.dll','d3d9.dll'];
 
   SetupSRL;
   DisableSRLDebug:=True;
